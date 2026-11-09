@@ -1,4 +1,4 @@
-Still is a little room for your attention.
-A native Mac focus timer with quiet soundscapes and a place to leave stray thoughts.
-Keep it on your desk, shrink it into a floating dial, or let it live in your menu bar.
-No account. No network. Just a little more space to think.
+Still is a native Mac workspace for focused work.
+Organize tasks by project, keep notes and references nearby, and work through your day in timed sessions.
+Includes a floating mini player, background sound, and a searchable session history.
+Everything is stored locally. Built with SwiftUI, with no dependencies or accounts.

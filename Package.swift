@@ -12,6 +12,7 @@ let package = Package(
     .target(name: "StillCore"),
     .executableTarget(name: "Still", dependencies: ["StillCore"]),
     .testTarget(name: "StillCoreTests", dependencies: ["StillCore"]),
+    .testTarget(name: "StillTests", dependencies: ["Still", "StillCore"]),
   ],
   swiftLanguageModes: [.v5]
 )
