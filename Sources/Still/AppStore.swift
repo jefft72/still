@@ -5,13 +5,15 @@ import StillCore
 
 @MainActor
 final class AppStore: ObservableObject {
-  enum FocusRequest { case task, note }
+  enum FocusRequest { case task, note, today }
   @Published var focusRequest: FocusRequest?
   @Published private(set) var state: StillState
   @Published var now: Date
   @Published var storageError: String?
   @Published var showingGuide = false
   @Published var showingCommandPalette = false
+  @Published var showingImport = false
+  @Published var handoffError: String?
   @Published var thoughtDraft = ""
   @Published private(set) var recentlyDeletedTask: TaskItem?
   let audio = AmbientAudio()
@@ -168,6 +170,56 @@ final class AppStore: ObservableObject {
       title: title, projectID: projectID, estimateMinutes: estimateMinutes, at: clock())
     if id != nil { persist() }
     return id
+  }
+
+  func handleURL(_ url: URL) {
+    do {
+      switch try StillURLAction.parse(url) {
+      case .note(let text):
+        _ = addThought(text)
+        focusRequest = .note
+      case .task(let title, let notes, let projectName, let minutes, let reference):
+        let projectID: UUID?
+        if let name = projectName {
+          projectID =
+            state.projects.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.id
+            ?? state.addProject(name: name, at: clock())
+        } else {
+          projectID = nil
+        }
+        if let id = state.addTask(
+          title: title, projectID: projectID, estimateMinutes: minutes, at: clock()),
+          var task = state.tasks.first(where: { $0.id == id })
+        {
+          task.notes = notes
+          if let reference {
+            task.links = [
+              TaskLink(title: reference.host ?? "Reference", url: reference.absoluteString)
+            ]
+          }
+          _ = state.updateTask(task)
+          persist()
+        }
+        focusRequest = .today
+      }
+      handoffError = nil
+    } catch {
+      handoffError = error.localizedDescription
+      focusRequest = .today
+    }
+  }
+
+  func importTasks(_ items: [ImportedTask], projectID: UUID?, queued: Bool) {
+    let timestamp = clock()
+    for item in items {
+      guard let id = state.addTask(title: item.title, projectID: projectID, at: timestamp) else {
+        continue
+      }
+      state.queueTask(id: id, queued: queued)
+      if item.isComplete { state.toggleTaskComplete(id: id, at: timestamp) }
+    }
+    persist()
+    focusRequest = .today
   }
 
   func updateTask(_ task: TaskItem) {

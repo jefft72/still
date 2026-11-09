@@ -103,6 +103,13 @@ struct TaskEditor: View {
             }
           }
           HStack {
+            Button("Copy task brief") {
+              NSPasteboard.general.clearContents()
+              NSPasteboard.general.setString(
+                WorkExport.brief(
+                  task: task, project: store.state.projects.first { $0.id == task.projectID }),
+                forType: .string)
+            }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Palette.accent)
             Text("Created \(task.createdAt.formatted(date: .abbreviated, time: .omitted))").font(
               .system(size: 10)
             ).foregroundStyle(Palette.muted)

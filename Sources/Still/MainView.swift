@@ -1,3 +1,4 @@
+import AppKit
 import StillCore
 import SwiftUI
 
@@ -19,6 +20,7 @@ struct MainView: View {
   @State private var showingCompleted = false
   @State private var editingTask: TaskItem?
   @State private var pendingTask: TaskItem?
+  @State private var removingProject: Project?
   @FocusState private var addingTask: Bool
 
   var body: some View {
@@ -55,15 +57,39 @@ struct MainView: View {
         store: store, onSelectTask: { pendingTask = $0 },
         onSelectProject: { section = .project($0) })
     }
+    .sheet(isPresented: $store.showingImport) { ImportTasksView(store: store) }
+    .alert(
+      "Couldn't open Still link",
+      isPresented: Binding(
+        get: { store.handoffError != nil }, set: { if !$0 { store.handoffError = nil } })
+    ) {
+      Button("OK") { store.handoffError = nil }
+    } message: {
+      Text(store.handoffError ?? "")
+    }
     .sheet(item: $editingTask) { task in TaskEditor(store: store, task: task) }
     .sheet(isPresented: $store.showingGuide) { GuideView() }
-    .alert(
-      renamingProject == nil ? "New project" : "Rename project", isPresented: $showingProjectPrompt
+    .sheet(isPresented: $showingProjectPrompt) {
+      ProjectEditor(
+        store: store, name: $projectName, projectID: renamingProject, onSave: saveProject)
+    }
+    .confirmationDialog(
+      "Remove project?",
+      isPresented: Binding(
+        get: { removingProject != nil }, set: { if !$0 { removingProject = nil } }),
+      titleVisibility: .visible
     ) {
-      TextField("Project name", text: $projectName)
-      Button("Cancel", role: .cancel) {}
-      Button(renamingProject == nil ? "Create project" : "Save") { saveProject() }
-        .disabled(projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+      Button("Remove project", role: .destructive) {
+        guard let project = removingProject else { return }
+        store.deleteProject(project.id)
+        if section == .project(project.id) { section = .today }
+        removingProject = nil
+      }
+      Button("Cancel", role: .cancel) { removingProject = nil }
+    } message: {
+      Text(
+        "Tasks in \(removingProject?.name ?? "this project") will stay in Today or Inbox, without a project assignment."
+      )
     }
     .onAppear {
       AppDelegate.reopen = {
@@ -124,8 +150,7 @@ struct MainView: View {
                 showingProjectPrompt = true
               }
               Button("Remove project", role: .destructive) {
-                store.deleteProject(project.id)
-                if section == .project(project.id) { section = .today }
+                removingProject = project
               }
             }
           }
@@ -149,8 +174,10 @@ struct MainView: View {
             .foregroundStyle(Palette.ink)
           Text("focused today").font(.system(size: 10)).foregroundStyle(Palette.muted)
         }
-        Text("\(store.state.todayCompletedCount(at: store.now)) completed sessions")
-          .font(.system(size: 10)).foregroundStyle(Palette.muted)
+        Text(
+          "\(store.state.todayCompletedCount(at: store.now)) completed \(store.state.todayCompletedCount(at: store.now) == 1 ? "session" : "sessions")"
+        )
+        .font(.system(size: 10)).foregroundStyle(Palette.muted)
       }.padding(21)
       Rectangle().fill(Palette.line).frame(height: 1)
       HStack {
@@ -161,7 +188,9 @@ struct MainView: View {
         }
         .buttonStyle(IconButton()).help("Help and shortcuts").accessibilityLabel(
           "Help and shortcuts")
-        Text("Saved on this Mac").font(.system(size: 10)).foregroundStyle(Palette.muted)
+        Text(store.storageError == nil ? "Saved locally" : "Changes not saved").font(
+          .system(size: 10)
+        ).foregroundStyle(store.storageError == nil ? Palette.muted : Palette.accent)
         Spacer()
       }.padding(.horizontal, 12).frame(height: 43)
     }.background(Palette.panel)
@@ -169,15 +198,18 @@ struct MainView: View {
 
   private var toolbar: some View {
     HStack(spacing: 8) {
-      Text(sectionTitle).font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.muted)
-      Spacer()
       Button {
         store.showingCommandPalette = true
       } label: {
-        Image(systemName: "magnifyingglass")
+        HStack(spacing: 8) {
+          Image(systemName: "magnifyingglass").font(.system(size: 11))
+          Text("Search").font(.system(size: 11))
+          Text("⌘ K").font(.system(size: 10)).foregroundStyle(Palette.muted.opacity(0.7))
+        }
       }
-      .buttonStyle(IconButton()).help("Search tasks and projects (⌘K)").accessibilityLabel(
+      .buttonStyle(QuietButton()).help("Search tasks and projects (⌘K)").accessibilityLabel(
         "Search tasks and projects")
+      Spacer()
       Button {
         showingNotes.toggle()
       } label: {
@@ -197,26 +229,26 @@ struct MainView: View {
         Image(systemName: "pip.enter")
       }
       .buttonStyle(IconButton()).help("Mini player (⌘⇧M)").accessibilityLabel("Mini player")
-    }.padding(.horizontal, 22).frame(height: 48)
+    }.padding(.horizontal, 22).frame(height: 42)
   }
 
   private var workspace: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 0) {
         HStack(alignment: .firstTextBaseline) {
-          Text(sectionTitle).font(.system(size: 28, weight: .semibold)).tracking(-0.7)
+          Text(sectionTitle).font(.system(size: 24, weight: .semibold)).tracking(-0.7)
           Spacer()
           if section == .today {
             Text(store.now, format: .dateTime.weekday(.wide).month(.abbreviated).day()).font(
               .system(size: 12)
             ).foregroundStyle(Palette.muted)
           }
-        }.padding(.bottom, 30)
+        }.padding(.bottom, 22)
         if section == .history {
           HistoryView(store: store)
         } else {
           if section == .today {
-            SessionStrip(store: store).padding(.bottom, 31)
+            SessionStrip(store: store).padding(.bottom, 24)
           }
           taskList
         }
@@ -232,12 +264,19 @@ struct MainView: View {
         Text("\(visibleTasks.filter { !$0.isComplete }.count)").font(.system(size: 11))
           .foregroundStyle(Palette.muted)
         Spacer()
-        Button {
-          addingTask = true
+        Menu {
+          Button("Import tasks…") { store.showingImport = true }
+          Button("Copy as checklist") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(
+              WorkExport.checklist(tasks: visibleTasks), forType: .string)
+          }.disabled(visibleTasks.isEmpty)
+          Button("Add task") { addingTask = true }
         } label: {
-          Label("Add task", systemImage: "plus").font(.system(size: 11))
+          Image(systemName: "ellipsis").font(.system(size: 12))
         }
-        .buttonStyle(QuietButton())
+        .tint(Palette.muted).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .accessibilityLabel("Task list options")
       }.padding(.bottom, 12)
       ForEach(visibleTasks.filter { !$0.isComplete }) { task in taskRow(task) }
       HStack(spacing: 12) {
@@ -321,10 +360,21 @@ struct MainView: View {
         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
       }.buttonStyle(.plain).help("Edit task")
       if !task.links.isEmpty {
-        Image(systemName: "link").font(.system(size: 10)).foregroundStyle(Palette.muted)
+        Button {
+          editingTask = task
+        } label: {
+          Image(systemName: "link").font(.system(size: 10)).foregroundStyle(Palette.muted)
+        }
+        .buttonStyle(.plain).help("\(task.links.count) references").accessibilityLabel(
+          "References for \(task.title)")
       }
       if !task.notes.isEmpty {
-        Image(systemName: "text.alignleft").font(.system(size: 10)).foregroundStyle(Palette.muted)
+        Button {
+          editingTask = task
+        } label: {
+          Image(systemName: "text.alignleft").font(.system(size: 10)).foregroundStyle(Palette.muted)
+        }
+        .buttonStyle(.plain).help("Task notes").accessibilityLabel("Notes for \(task.title)")
       }
       Text("\(task.estimateMinutes)m").font(.system(size: 11, design: .monospaced)).foregroundStyle(
         Palette.muted)
@@ -337,11 +387,20 @@ struct MainView: View {
         } label: {
           Image(systemName: "play.fill").font(.system(size: 10))
         }
-        .buttonStyle(IconButton()).disabled(store.isActive).help("Focus on this task")
+        .buttonStyle(IconButton()).disabled(store.isActive).help(
+          store.isActive ? "End the current session before starting another" : "Focus on this task"
+        )
         .accessibilityLabel("Focus on \(task.title)")
       }
       Menu {
         Button("Edit task") { editingTask = task }
+        Button("Copy task brief") {
+          NSPasteboard.general.clearContents()
+          NSPasteboard.general.setString(
+            WorkExport.brief(
+              task: task, project: store.state.projects.first { $0.id == task.projectID }),
+            forType: .string)
+        }
         if !task.isComplete {
           Button(task.isQueued ? "Move to Inbox" : "Add to Today") {
             store.queueTask(task.id, queued: !task.isQueued)
@@ -357,7 +416,8 @@ struct MainView: View {
         Image(systemName: "ellipsis").font(.system(size: 12)).foregroundStyle(Palette.muted).frame(
           width: 18)
       }
-      .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().accessibilityLabel(
+      .tint(Palette.muted).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+      .accessibilityLabel(
         "Actions for \(task.title)")
     }.padding(.horizontal, 12).padding(.vertical, 12)
       .background(
@@ -434,6 +494,8 @@ struct MainView: View {
     case .task:
       if section == .history { section = .today }
       addingTask = true
+    case .today:
+      section = .today
     case .note:
       showingNotes = true
       NotificationCenter.default.post(name: .captureThought, object: nil)
@@ -456,4 +518,5 @@ struct MainView: View {
     projectName = ""
     renamingProject = nil
   }
+
 }

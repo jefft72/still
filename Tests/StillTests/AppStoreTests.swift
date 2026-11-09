@@ -247,4 +247,56 @@ final class AppStoreTests: XCTestCase {
     XCTAssertFalse(store.prepareTask(UUID()))
     XCTAssertEqual(store.selectedTask?.id, id)
   }
+  func testImportedTasksPreserveExistingWorkAndCompletedState() throws {
+    let store = makeStore()
+    let original = try XCTUnwrap(store.createTask(title: "Existing work"))
+    store.prepareTask(original)
+    store.primaryAction()
+    let active = store.state.session
+    let project = try XCTUnwrap(store.addProject("Imported"))
+    let items = try TaskImport.parse("- [ ] Review UI\n- [x] Fix tests")
+    store.importTasks(items, projectID: project, queued: false)
+    XCTAssertEqual(store.state.tasks.map(\.title), ["Existing work", "Review UI", "Fix tests"])
+    XCTAssertEqual(store.state.session, active)
+    XCTAssertFalse(store.state.tasks[1].isQueued)
+    XCTAssertEqual(store.state.tasks[1].projectID, project)
+    XCTAssertTrue(store.state.tasks[2].isComplete)
+    XCTAssertEqual(try repository.load(), store.state)
+  }
+
+  func testURLHandoffCreatesContextWithoutInterruptingCurrentSession() throws {
+    let store = makeStore()
+    store.setIntention("Already focusing")
+    store.primaryAction()
+    let session = store.state.session
+    let url = try XCTUnwrap(
+      URL(
+        string:
+          "still://task?title=Review%20PR&notes=Check%20tests&project=Website&minutes=15&url=https%3A%2F%2Fexample.com"
+      ))
+    store.handleURL(url)
+    XCTAssertEqual(store.state.tasks.count, 1)
+    XCTAssertEqual(store.state.tasks[0].title, "Review PR")
+    XCTAssertEqual(store.state.tasks[0].notes, "Check tests")
+    XCTAssertEqual(store.state.tasks[0].estimateMinutes, 15)
+    XCTAssertEqual(store.state.tasks[0].links[0].url, "https://example.com")
+    XCTAssertEqual(store.state.projects.count, 1)
+    XCTAssertEqual(store.state.session, session)
+    XCTAssertFalse(store.audio.isPlaying)
+    XCTAssertEqual(try repository.load(), store.state)
+    store.handleURL(try XCTUnwrap(URL(string: "still://task?title=Another&project=website")))
+    XCTAssertEqual(store.state.projects.count, 1)
+  }
+
+  func testInvalidHandoffDoesNotMutateWorkspace() throws {
+    let store = makeStore()
+    let before = store.state
+    store.handleURL(try XCTUnwrap(URL(string: "still://task?title=Unsafe&url=file:///tmp/example")))
+    XCTAssertNotNil(store.handoffError)
+    XCTAssertEqual(store.state, before)
+    store.handleURL(try XCTUnwrap(URL(string: "still://note?text=Remember%20this")))
+    XCTAssertNil(store.handoffError)
+    XCTAssertEqual(store.state.thoughts.first?.text, "Remember this")
+  }
+
 }

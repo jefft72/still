@@ -4,7 +4,13 @@ import SwiftUI
 @main
 struct StillApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-  @StateObject private var store = AppStore()
+  @StateObject private var store: AppStore
+
+  init() {
+    let model = AppStore()
+    _store = StateObject(wrappedValue: model)
+    AppDelegate.model = model
+  }
 
   var body: some Scene {
     Window("Still", id: "main") {
@@ -40,6 +46,12 @@ struct StillApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
   static var reopen: (() -> Void)?
+  static var model: AppStore?
+  func application(_ application: NSApplication, open urls: [URL]) {
+    for url in urls { Self.model?.handleURL(url) }
+    Self.reopen?()
+    NSApp.activate(ignoringOtherApps: true)
+  }
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.regular)
@@ -66,6 +78,13 @@ struct StillCommands: Commands {
         openWorkspace()
         store.focusRequest = .note
       }.keyboardShortcut("n", modifiers: [.command, .shift])
+    }
+    CommandGroup(after: .importExport) {
+      Button("Import Tasks…") {
+        openWorkspace()
+        store.showingImport = true
+      }
+      .keyboardShortcut("i", modifiers: [.command, .shift])
     }
     CommandGroup(after: .textEditing) {
       Button("Search Tasks and Projects") {
@@ -142,6 +161,22 @@ struct MiniView: View {
       SessionStrip(store: store, compact: true)
     }.padding(20).frame(width: 380).background(Palette.background)
       .background(WindowConfigurator(floating: true)).preferredColorScheme(.light)
+      .onAppear {
+        AppDelegate.reopen = {
+          openWindow(id: "main")
+          dismissWindow(id: "mini")
+        }
+        if store.focusRequest != nil {
+          openWindow(id: "main")
+          dismissWindow(id: "mini")
+        }
+      }
+      .onChange(of: store.focusRequest) { _, request in
+        if request != nil {
+          openWindow(id: "main")
+          dismissWindow(id: "mini")
+        }
+      }
   }
 }
 
