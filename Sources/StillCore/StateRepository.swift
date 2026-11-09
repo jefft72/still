@@ -39,9 +39,11 @@ public struct StateRepository: Sendable {
     let data = try Data(contentsOf: fileURL)
     let decoder = JSONDecoder()
     let version = try decoder.decode(Version.self, from: data)
-    guard version.version == 1 else { throw StorageError.unsupportedVersion(version.version) }
+    guard (1...2).contains(version.version) else {
+      throw StorageError.unsupportedVersion(version.version)
+    }
     let state = try decoder.decode(Envelope.self, from: data).state
-    guard state.session.isValidPersistedState,
+    guard state.session.isValidPersistedState, state.isValidWorkspace,
       Set(state.thoughts.map(\.id)).count == state.thoughts.count,
       Set(state.history.map(\.id)).count == state.history.count,
       state.thoughts.allSatisfy({
@@ -63,7 +65,7 @@ public struct StateRepository: Sendable {
     try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-    let data = try encoder.encode(Envelope(version: 1, state: state))
+    let data = try encoder.encode(Envelope(version: 2, state: state))
     try data.write(to: fileURL, options: .atomic)
   }
 

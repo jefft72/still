@@ -51,10 +51,10 @@ final class StateRepositoryTests: XCTestCase {
   func testNewerFormatIsReportedBeforeDecodingPayloadAndPreserved() throws {
     try FileManager.default.createDirectory(
       at: repository.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-    let newer = Data("{\"version\":2,\"state\":{\"newField\":true}}".utf8)
+    let newer = Data("{\"version\":3,\"state\":{\"newField\":true}}".utf8)
     try newer.write(to: repository.fileURL)
     XCTAssertThrowsError(try repository.load()) { error in
-      XCTAssertEqual(error as? StateRepository.StorageError, .unsupportedVersion(2))
+      XCTAssertEqual(error as? StateRepository.StorageError, .unsupportedVersion(3))
     }
     XCTAssertEqual(try Data(contentsOf: repository.fileURL), newer)
   }
@@ -145,6 +145,44 @@ final class StateRepositoryTests: XCTestCase {
     payload["session"] = session
     envelope["state"] = payload
     try JSONSerialization.data(withJSONObject: envelope).write(to: repository.fileURL)
+  }
+
+  func testLegacyVersionOneMigratesWithoutLosingSessionsOrThoughts() throws {
+    var state = StillState(session: FocusSession(intention: "Keep this", duration: 60))
+    let date = Date(timeIntervalSince1970: 1_800_000_000)
+    state.start(at: date)
+    state.reconcile(at: date.addingTimeInterval(60))
+    state.addThought("Do not lose this", at: date)
+    try repository.save(state)
+    var envelope = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: repository.fileURL)) as? [String: Any])
+    envelope["version"] = 1
+    var payload = try XCTUnwrap(envelope["state"] as? [String: Any])
+    payload.removeValue(forKey: "tasks")
+    payload.removeValue(forKey: "projects")
+    envelope["state"] = payload
+    let legacyData = try JSONSerialization.data(withJSONObject: envelope)
+    try legacyData.write(to: repository.fileURL)
+    let restored = try repository.load()
+    XCTAssertEqual(restored, state)
+    XCTAssertEqual(try Data(contentsOf: repository.fileURL), legacyData)
+    try repository.save(restored)
+    let updated = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: repository.fileURL)) as? [String: Any])
+    XCTAssertEqual(updated["version"] as? Int, 2)
+  }
+
+  func testRepositoryRejectsDanglingTaskProjectsButAcceptsHistoricalOrphans() throws {
+    let missingProject = UUID()
+    try repository.save(StillState(tasks: [TaskItem(title: "Work", projectID: missingProject)]))
+    XCTAssertThrowsError(try repository.load())
+    let date = Date(timeIntervalSince1970: 1_800_000_000)
+    let record = SessionRecord(
+      intention: "Past work", duration: 60, startedAt: date,
+      completedAt: date.addingTimeInterval(60), taskID: UUID(), projectID: missingProject)
+    let state = StillState(history: [record])
+    try repository.save(state)
+    XCTAssertEqual(try repository.load(), state)
   }
 
 }

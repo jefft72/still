@@ -20,15 +20,21 @@ public struct SessionRecord: Identifiable, Codable, Equatable, Sendable {
   public let duration: TimeInterval
   public let startedAt: Date
   public let completedAt: Date
+  public let taskID: UUID?
+  public let projectID: UUID?
 
   public init(
-    id: UUID = UUID(), intention: String, duration: TimeInterval, startedAt: Date, completedAt: Date
+    id: UUID = UUID(), intention: String, duration: TimeInterval, startedAt: Date,
+    completedAt: Date,
+    taskID: UUID? = nil, projectID: UUID? = nil
   ) {
     self.id = id
     self.intention = intention
     self.duration = duration
     self.startedAt = startedAt
     self.completedAt = completedAt
+    self.taskID = taskID
+    self.projectID = projectID
   }
 }
 
@@ -36,13 +42,31 @@ public struct StillState: Codable, Equatable, Sendable {
   public var session: FocusSession
   public private(set) var thoughts: [Thought]
   public private(set) var history: [SessionRecord]
+  public internal(set) var tasks: [TaskItem]
+  public internal(set) var projects: [Project]
 
   public init(
-    session: FocusSession = FocusSession(), thoughts: [Thought] = [], history: [SessionRecord] = []
+    session: FocusSession = FocusSession(), thoughts: [Thought] = [], history: [SessionRecord] = [],
+    tasks: [TaskItem] = [], projects: [Project] = []
   ) {
     self.session = session
     self.thoughts = thoughts
     self.history = history
+    self.tasks = tasks
+    self.projects = projects
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case session, thoughts, history, tasks, projects
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    session = try container.decode(FocusSession.self, forKey: .session)
+    thoughts = try container.decode([Thought].self, forKey: .thoughts)
+    history = try container.decode([SessionRecord].self, forKey: .history)
+    tasks = try container.decodeIfPresent([TaskItem].self, forKey: .tasks) ?? []
+    projects = try container.decodeIfPresent([Project].self, forKey: .projects) ?? []
   }
 
   public mutating func start(at now: Date = Date()) {
@@ -79,7 +103,9 @@ public struct StillState: Codable, Equatable, Sendable {
           intention: session.intention,
           duration: session.duration,
           startedAt: startedAt,
-          completedAt: deadline
+          completedAt: deadline,
+          taskID: session.taskID,
+          projectID: session.projectID
         ), at: 0)
     }
     session.finish()

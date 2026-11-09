@@ -12,10 +12,17 @@ public struct FocusSession: Codable, Equatable, Sendable {
   public private(set) var phase: SessionPhase
   public private(set) var startedAt: Date?
   public private(set) var deadline: Date?
+  public private(set) var taskID: UUID?
+  public private(set) var projectID: UUID?
   private var pausedRemaining: TimeInterval
 
-  public init(intention: String = "", duration: TimeInterval = 25 * 60) {
+  public init(
+    intention: String = "", duration: TimeInterval = 25 * 60, taskID: UUID? = nil,
+    projectID: UUID? = nil
+  ) {
     id = UUID()
+    self.taskID = taskID
+    self.projectID = projectID
     self.intention = intention
     self.duration = Self.validDuration(duration)
     phase = .idle
@@ -73,7 +80,8 @@ public struct FocusSession: Codable, Equatable, Sendable {
   }
 
   mutating func reset() {
-    self = FocusSession(intention: intention, duration: duration)
+    self = FocusSession(
+      intention: intention, duration: duration, taskID: taskID, projectID: projectID)
   }
 
   var isValidPersistedState: Bool {
