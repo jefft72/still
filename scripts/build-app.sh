@@ -24,6 +24,7 @@ app_path="$staging_dir/Still.app"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 cp "$binary_dir/Still" "$app_path/Contents/MacOS/Still"
 cp Resources/Info.plist "$app_path/Contents/Info.plist"
+cp LICENSE "$app_path/Contents/Resources/LICENSE"
 
 swift scripts/GenerateIcon.swift "$staging_dir/Still.iconset"
 iconutil --convert icns --output "$app_path/Contents/Resources/Still.icns" "$staging_dir/Still.iconset"

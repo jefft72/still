@@ -13,7 +13,7 @@ make check
 make run
 ```
 
-`make check` runs formatting checks, the core tests, and a debug build.
+`make check` runs formatting checks, all tests, and a debug build.
 `make run` creates an app bundle at `dist/Still.app` and opens it.
 Use `make format` to apply the project formatter before committing.
 
@@ -26,7 +26,6 @@ make install
 This builds a release app and installs it in `~/Applications/Still.app` without administrator access.
 Quit an installed copy before updating it.
 The installer refuses to replace an unrelated app or a symlink.
-It never changes a system Applications folder.
 For another location, run `./scripts/install.sh --destination /path/to/folder` after building.
 Run `make test-install` after `make app` to verify installation, updates, and refusal to replace unrelated files in a temporary directory.
 
@@ -37,8 +36,9 @@ Building from source avoids the downloaded-app quarantine step.
 ## Structure
 
 `Sources/Still` contains the native interface, window behavior, and procedural audio.
-`Sources/StillCore` contains the session state and local persistence.
-`Tests/StillCoreTests` exercises countdown behavior, completion, history, and captured thoughts.
+`Sources/StillCore` contains session and workspace state, local persistence, checklist import, and app-link parsing.
+`Tests/StillCoreTests` exercises countdown behavior, persistence, workspace operations, import, and app-link validation.
+`Tests/StillTests` covers application state, search, audio behavior, and export formatting.
 `scripts/GenerateIcon.swift` draws the app icon with AppKit during packaging.
 Build outputs and generated icons stay in `dist` and are not committed.
 

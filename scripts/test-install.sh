@@ -14,9 +14,12 @@ destination="$test_root/Applications"
 
 ./scripts/install.sh --destination "$destination"
 codesign --verify --strict "$destination/Still.app"
+cmp LICENSE "$destination/Still.app/Contents/Resources/LICENSE"
 ./scripts/install.sh --destination "$destination"
 codesign --verify --strict "$destination/Still.app"
+cmp LICENSE "$destination/Still.app/Contents/Resources/LICENSE"
 echo 'PASS: fresh install and recognized app update'
+echo 'PASS: installed bundles retain the complete license notice'
 
 rm -rf "$destination/Still.app"
 mkdir -p "$destination/Still.app"
