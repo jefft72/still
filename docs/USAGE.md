@@ -3,6 +3,10 @@
 Still keeps a task list and a focus timer together in a native Mac workspace.
 All data stays on your Mac; no account or network connection is required.
 
+![Still workspace with example tasks](images/workspace.png)
+
+The screenshots show example tasks in a separate test workspace.
+
 ## Tasks and projects
 
 Type a task in the entry row and press Return.
@@ -50,7 +54,7 @@ Completing a session does not complete its task; use the task checkbox when the 
 Open Notes to capture thoughts without switching away from your work.
 Press Return to save a note or Shift-Return for a new line.
 Resolve a note with its checkmark, and use **Show resolved notes** to recover it later.
-Long notes can expand without dominating the panel.
+Notes remain readable in full within the scrolling panel.
 
 Background sound offers Rain, Shore, and Ember, generated on the Mac without audio downloads.
 Sound starts only when you choose it.
@@ -58,6 +62,8 @@ Your sound and volume preferences are remembered, but playback is off after rela
 Completing or ending a session stops the sound.
 
 ## Mini player and menu bar
+
+![Still mini player](images/mini-player.png)
 
 The mini player floats above other windows and can move between desktops.
 It shares the workspace timer and offers the same pause and resume controls.

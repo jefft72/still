@@ -39,11 +39,11 @@ struct QuietButton: ButtonStyle {
 struct PrimaryButton: ButtonStyle {
   @Environment(\.isEnabled) private var isEnabled
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label.opacity(isEnabled ? 1 : 0.3).font(.system(size: 12, weight: .medium))
-      .foregroundStyle(.white)
+    configuration.label.font(.system(size: 12, weight: .medium))
+      .foregroundStyle(isEnabled ? Color.white : Palette.muted)
       .padding(.horizontal, 14).frame(height: 32)
       .background(
-        Palette.accent.opacity(configuration.isPressed ? 0.8 : 1),
+        isEnabled ? Palette.accent.opacity(configuration.isPressed ? 0.8 : 1) : Palette.line,
         in: RoundedRectangle(cornerRadius: 6))
   }
 }

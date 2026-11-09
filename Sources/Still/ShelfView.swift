@@ -73,6 +73,7 @@ struct ShelfView: View {
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityRemoveTraits(.isSelected)
+                .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(note.isDone ? "Reopen note" : "Resolve note")
               }
             }.padding(.vertical, 15).overlay(alignment: .bottom) {
