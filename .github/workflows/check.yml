@@ -1,0 +1,39 @@
+name: Check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: Build and test on macOS
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          swift format --version
+      - name: Style, tests, and debug build
+        run: make check
+      - name: Package app
+        run: make app
+      - name: Verify installer boundaries
+        run: make test-install
+      - name: Archive app
+        run: ditto -c -k --sequesterRsrc --keepParent dist/Still.app dist/Still-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Still-macOS
+          path: dist/Still-macOS.zip
+          retention-days: 14
