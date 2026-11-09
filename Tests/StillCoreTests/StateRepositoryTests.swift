@@ -185,4 +185,25 @@ final class StateRepositoryTests: XCTestCase {
     XCTAssertEqual(try repository.load(), state)
   }
 
+  func testClockRollbackWhilePausedStillProducesReadableCompletedHistory() throws {
+    var state = StillState(session: FocusSession(intention: "Keep working", duration: 600))
+    let originalStart = Date(timeIntervalSince1970: 1_800_000_000)
+    state.start(at: originalStart)
+    state.pause(at: originalStart.addingTimeInterval(120))
+    // Reproduce a clock correction without changing the machine clock.
+    let correctedResume = originalStart.addingTimeInterval(-3_600)
+    state.resume(at: correctedResume)
+    try repository.save(state)
+    var reopened = try repository.load()
+    let completion = correctedResume.addingTimeInterval(480)
+    XCTAssertTrue(reopened.reconcile(at: completion))
+    try repository.save(reopened)
+    XCTAssertEqual(try repository.load(), reopened)
+    let record = try XCTUnwrap(reopened.history.first)
+    XCTAssertEqual(record.completedAt, completion)
+    XCTAssertEqual(record.duration, 600)
+    XCTAssertGreaterThanOrEqual(
+      record.completedAt.timeIntervalSince(record.startedAt), record.duration)
+  }
+
 }

@@ -97,12 +97,15 @@ public struct StillState: Codable, Equatable, Sendable {
       let startedAt = session.startedAt
     else { return false }
     if !history.contains(where: { $0.id == session.id }) {
+      // A wall-clock correction while paused can put completion before the original start.
+      // Keep the actual completion date and ensure its interval contains the focused duration.
+      let recordStart = min(startedAt, deadline.addingTimeInterval(-session.duration))
       history.insert(
         SessionRecord(
           id: session.id,
           intention: session.intention,
           duration: session.duration,
-          startedAt: startedAt,
+          startedAt: recordStart,
           completedAt: deadline,
           taskID: session.taskID,
           projectID: session.projectID
