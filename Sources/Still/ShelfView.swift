@@ -3,9 +3,8 @@ import SwiftUI
 
 struct ShelfView: View {
   @ObservedObject var store: AppStore
-  @FocusState private var capturing: Bool
+  @State private var focusRequest = 0
   @State private var showResolved = false
-  @State private var expandedNotes: Set<UUID> = []
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -17,13 +16,23 @@ struct ShelfView: View {
         } label: {
           Image(systemName: "ellipsis").font(.system(size: 12))
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().accessibilityLabel(
+        .tint(Palette.muted).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .accessibilityLabel(
           "Notes options")
       }.padding(.bottom, 18)
       HStack(alignment: .top, spacing: 6) {
-        TextField("Write a note…", text: $store.thoughtDraft, axis: .vertical)
-          .lineLimit(2...5).font(.system(size: 12)).textFieldStyle(.plain)
-          .focused($capturing).onSubmit(store.captureThought).accessibilityLabel("New note")
+        ZStack(alignment: .topLeading) {
+          NoteEditor(
+            text: $store.thoughtDraft, focusRequest: focusRequest, onSubmit: store.captureThought
+          )
+          .frame(height: 60)
+          if store.thoughtDraft.isEmpty {
+            Text("Write a note…").font(.system(size: 12)).foregroundStyle(
+              Palette.muted.opacity(0.7)
+            )
+            .allowsHitTesting(false)
+          }
+        }
         Button(action: store.captureThought) {
           Image(systemName: "arrow.turn.down.left").font(.system(size: 10))
         }
@@ -34,7 +43,7 @@ struct ShelfView: View {
       }.padding(10).background(Color.white, in: RoundedRectangle(cornerRadius: 6))
         .overlay(
           RoundedRectangle(cornerRadius: 6).stroke(
-            capturing ? Palette.muted : Palette.line, lineWidth: 1))
+            Palette.line, lineWidth: 1))
       Text("Return to save · ⇧ Return for a new line").font(.system(size: 9)).foregroundStyle(
         Palette.muted
       ).padding(.top, 8).padding(.bottom, 20)
@@ -48,17 +57,8 @@ struct ShelfView: View {
             VStack(alignment: .leading, spacing: 10) {
               Text(note.text).font(.system(size: 12)).lineSpacing(4).textSelection(.enabled)
                 .foregroundStyle(note.isDone ? Palette.muted : Palette.ink)
-                .strikethrough(note.isDone).lineLimit(expandedNotes.contains(note.id) ? nil : 6)
+                .strikethrough(note.isDone)
                 .frame(maxWidth: .infinity, alignment: .leading)
-              if note.text.count > 250 || note.text.components(separatedBy: "\n").count > 6 {
-                Button(expandedNotes.contains(note.id) ? "Show less" : "Show more") {
-                  if expandedNotes.contains(note.id) {
-                    expandedNotes.remove(note.id)
-                  } else {
-                    expandedNotes.insert(note.id)
-                  }
-                }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(Palette.muted)
-              }
               HStack {
                 Text(note.createdAt, format: .dateTime.month(.abbreviated).day().hour().minute())
                   .font(.system(size: 9)).foregroundStyle(Palette.muted)
@@ -71,6 +71,8 @@ struct ShelfView: View {
                 }.buttonStyle(.plain).foregroundStyle(Palette.muted).help(
                   note.isDone ? "Reopen note" : "Resolve note"
                 )
+                .accessibilityElement(children: .ignore)
+                .accessibilityRemoveTraits(.isSelected)
                 .accessibilityLabel(note.isDone ? "Reopen note" : "Resolve note")
               }
             }.padding(.vertical, 15).overlay(alignment: .bottom) {
@@ -81,9 +83,10 @@ struct ShelfView: View {
       }
       Spacer(minLength: 0)
     }.padding(22).background(Palette.panel.opacity(0.45))
-      .onReceive(NotificationCenter.default.publisher(for: .captureThought)) { _ in capturing = true
+      .onReceive(NotificationCenter.default.publisher(for: .captureThought)) { _ in
+        focusRequest += 1
       }
-      .onAppear { capturing = true }
+      .onAppear { focusRequest += 1 }
   }
   private var notes: [Thought] { store.state.thoughts.filter { showResolved || !$0.isDone } }
 }

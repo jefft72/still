@@ -21,9 +21,11 @@ extension Color {
 }
 
 struct QuietButton: ButtonStyle {
+  @Environment(\.isEnabled) private var isEnabled
   var selected = false
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
+      .opacity(isEnabled ? 1 : 0.3)
       .foregroundStyle(selected ? Palette.ink : Palette.muted)
       .padding(.horizontal, 10).padding(.vertical, 7)
       .background(
@@ -35,8 +37,9 @@ struct QuietButton: ButtonStyle {
 }
 
 struct PrimaryButton: ButtonStyle {
+  @Environment(\.isEnabled) private var isEnabled
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label.font(.system(size: 12, weight: .medium))
+    configuration.label.opacity(isEnabled ? 1 : 0.3).font(.system(size: 12, weight: .medium))
       .foregroundStyle(.white)
       .padding(.horizontal, 14).frame(height: 32)
       .background(
@@ -46,8 +49,9 @@ struct PrimaryButton: ButtonStyle {
 }
 
 struct IconButton: ButtonStyle {
+  @Environment(\.isEnabled) private var isEnabled
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label.font(.system(size: 13))
+    configuration.label.opacity(isEnabled ? 1 : 0.3).font(.system(size: 13))
       .foregroundStyle(Palette.muted)
       .frame(width: 28, height: 28)
       .background(

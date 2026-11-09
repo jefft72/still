@@ -26,7 +26,7 @@ struct SoundscapeView: View {
           Text(audio.isPlaying ? audio.soundscape.title : "Background sound")
           Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
         }.font(.system(size: 11)).foregroundStyle(Palette.muted)
-      }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+      }.tint(Palette.muted).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
       if audio.isPlaying {
         Slider(value: $audio.volume, in: 0...1).controlSize(.mini).tint(Palette.accent)
           .frame(width: 78).accessibilityLabel("Ambient volume")

@@ -97,10 +97,10 @@ struct HistoryView: View {
               .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
               .contentShape(Rectangle())
               .help(
-                "\(day.date.formatted(date: .complete, time: .omitted)): \(minuteLabel(day.seconds)) minutes, \(day.records.count) sessions"
+                "\(day.date.formatted(date: .complete, time: .omitted)): \(minuteLabel(day.seconds)) \(minuteLabel(day.seconds) == "1" ? "minute" : "minutes"), \(day.records.count) \(day.records.count == 1 ? "session" : "sessions")"
               )
               .accessibilityLabel(
-                "\(day.date.formatted(date: .complete, time: .omitted)), \(minuteLabel(day.seconds)) minutes, \(day.records.count) sessions"
+                "\(day.date.formatted(date: .complete, time: .omitted)), \(minuteLabel(day.seconds)) \(minuteLabel(day.seconds) == "1" ? "minute" : "minutes"), \(day.records.count) \(day.records.count == 1 ? "session" : "sessions")"
               )
           }
         }
@@ -203,7 +203,9 @@ struct HistoryView: View {
       Text(searching ? "\(count) of \(total)" : "\(count)")
         .font(.system(size: 11)).monospacedDigit().foregroundStyle(Palette.muted)
         .accessibilityLabel(
-          searching ? "\(count) matching sessions out of \(total)" : "\(count) sessions")
+          searching
+            ? "\(count) matching sessions out of \(total)"
+            : "\(count) \(count == 1 ? "session" : "sessions")")
     }
   }
 
@@ -220,14 +222,14 @@ struct HistoryView: View {
           .font(.system(size: 11))
       }
       .buttonStyle(QuietButton()).disabled(records.isEmpty)
-      .help("Export the \(records.count) displayed sessions as CSV")
+      .help("Export \(records.count) \(records.count == 1 ? "session" : "sessions") as CSV")
     }
   }
 
   private func sessionRow(_ record: SessionRecord) -> some View {
     HStack(spacing: 14) {
       Image(systemName: "checkmark").font(.system(size: 10, weight: .medium))
-        .foregroundStyle(Palette.green).frame(width: 16)
+        .foregroundStyle(Palette.green).frame(width: 16).accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 4) {
         Text(record.intention.isEmpty ? "Untitled session" : record.intention)
           .font(.system(size: 13)).foregroundStyle(Palette.ink).lineLimit(2)
